@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>剪刀石頭布：冒險者終極大對決</title>
+<style>
+  :root { color-scheme: dark; --bg:#101827; --panel:#1c2940; --accent:#7dd3fc; --gold:#fbbf24; --text:#f3f6fc; --muted:#b8c5d9; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif; color:var(--text);
+    background:radial-gradient(circle at top,#263b5d 0,#101827 60%); padding:24px 14px; }
+  main { max-width:820px; margin:auto; }
+  header { text-align:center; margin:8px 0 22px; }
+  h1 { margin:0 0 8px; font-size:clamp(1.7rem,5vw,2.6rem); }
+  header p,.muted { color:var(--muted); }
+  .panel { background:rgba(28,41,64,.94); border:1px solid #3b4c68; border-radius:18px; padding:20px; margin:14px 0; box-shadow:0 12px 30px #0003; }
+  label { display:block; font-weight:700; margin:12px 0 7px; }
+  input,select { width:100%; border-radius:10px; border:1px solid #526681; background:#111c2d; color:var(--text); padding:12px; font:inherit; }
+  button { cursor:pointer; border:0; border-radius:12px; padding:12px 16px; font:inherit; font-weight:750; color:#092033; background:var(--accent); transition:transform .12s,filter .12s; }
+  button:hover { filter:brightness(1.08); transform:translateY(-1px); }
+  button:disabled { cursor:not-allowed; opacity:.45; transform:none; }
+  .primary { width:100%; margin-top:16px; }
+  .equipment { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px; margin-top:10px; }
+  .equip-card { border:1px solid #435673; border-radius:12px; padding:12px; background:#152238; }
+  .equip-card strong { display:block; margin-bottom:5px; color:var(--gold); }
+  .hidden { display:none !important; }
+  .scoreboard { display:grid; grid-template-columns:1fr 1fr; gap:12px; text-align:center; }
+  .score { background:#111c2d; border-radius:14px; padding:15px; }
+  .score .num { font-size:2.4rem; font-weight:850; color:var(--accent); }
+  .round { color:var(--muted); font-weight:700; text-align:center; }
+  .choices { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:16px 0; }
+  .choice { padding:16px 8px; font-size:1.08rem; background:#e0f2fe; }
+  .choice span { display:block; font-size:2rem; margin-bottom:4px; }
+  #log { min-height:90px; line-height:1.8; white-space:pre-line; }
+  .status { padding:12px; border-radius:12px; background:#111c2d; margin-top:12px; }
+  .win { color:#86efac; font-weight:800; } .lose { color:#fca5a5; font-weight:800; }
+  footer { text-align:center; color:var(--muted); font-size:.85rem; padding:16px; }
+  @media(max-width:440px) { .panel { padding:15px; } .choices { gap:6px; } .choice { font-size:.95rem; } }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>✊ ✋ ✌️ 剪刀石頭布</h1>
+  <p>冒險者終極大對決｜先取得 5 勝的一方就是贏家！</p>
+</header>
+
+<section class="panel" id="setup">
+  <h2>🧭 冒險者登入</h2>
+  <label for="playerName">請輸入你的冒險者名字：</label>
+  <input id="playerName" maxlength="30" placeholder="例如：勇者小明" autocomplete="nickname">
+  <label for="equipment">請選擇你的使用裝備：</label>
+  <select id="equipment">
+    <option value="黃金鍵盤">⌨️ 黃金鍵盤</option>
+    <option value="魔法魔杖">🪄 魔法魔杖</option>
+    <option value="疾風戰靴">👟 疾風戰靴</option>
+  </select>
+  <div class="equipment">
+    <div class="equip-card"><strong>⌨️ 黃金鍵盤</strong>每次獲勝時，獲得額外士氣提示。</div>
+    <div class="equip-card"><strong>🪄 魔法魔杖</strong>每回合提示可以擊敗電腦的拳。</div>
+    <div class="equip-card"><strong>👟 疾風戰靴</strong>平手時可以選擇重新出拳一次。</div>
+  </div>
+  <button class="primary" id="startBtn">開始冒險</button>
+</section>
+
+<section class="panel hidden" id="game">
+  <h2 id="welcome">歡迎，冒險者！</h2>
+  <p id="gearInfo" class="muted"></p>
+  <div class="scoreboard">
+    <div class="score"><div>🧑 你</div><div class="num" id="playerScore">0</div><div id="playerLabel">冒險者</div></div>
+    <div class="score"><div>🤖 電腦</div><div class="num" id="computerScore">0</div><div>對手</div></div>
+  </div>
+  <p class="round" id="roundLabel">第 1 回合</p>
+  <div class="status" id="hint">選擇你的拳！</div>
+  <div class="choices" id="choices">
+    <button class="choice" data-choice="剪刀"><span>✌️</span>剪刀</button>
+    <button class="choice" data-choice="石頭"><span>✊</span>石頭</button>
+    <button class="choice" data-choice="布"><span>✋</span>布</button>
+  </div>
+  <div id="retryArea" class="hidden">
+    <p>👟 疾風戰靴發動！要重新出拳一次嗎？</p>
+    <button id="retryYes">重新出拳</button>
+    <button id="retryNo">跳過</button>
+  </div>
+  <div class="status" id="log" aria-live="polite">系統廣播：準備開始挑戰！</div>
+  <button class="primary hidden" id="againBtn">再玩一次</button>
+</section>
+<footer>祝你成為剪刀石頭布大師！</footer>
+</main>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const info = {
+    "黃金鍵盤":"功能：增加冒險者的信心，每次獲勝時額外獲得 1 點士氣。",
+    "魔法魔杖":"功能：可以感應電腦的出拳，在每回合開始時給予一次提示。",
+    "疾風戰靴":"功能：讓冒險者行動更快，平手時可以獲得一次重來出拳的機會。"
+  };
+  const options = ["剪刀","石頭","布"];
+  const beats = {"剪刀":"布","石頭":"剪刀","布":"石頭"};
+  let name="", equipment="黃金鍵盤", playerWins=0, computerWins=0, round=1, computerChoice="", retryUsed=false, finished=false;
+
+  function log(message) { $("log").textContent = message; }
+  function scores() {
+    $("playerScore").textContent = playerWins;
+    $("computerScore").textContent = computerWins;
+    $("roundLabel").textContent = `第 ${round} 回合`;
+  }
+  function lockChoices(lock) {
+    document.querySelectorAll(".choice").forEach(b => b.disabled = lock);
+  }
+  function finish() {
+    finished = true; lockChoices(true); $("retryArea").classList.add("hidden");
+    $("againBtn").classList.remove("hidden");
+    if (playerWins >= 5) {
+      log(`🌟 最終結果\n🏆 恭喜你以 ${playerWins} : ${computerWins} 擊敗了電腦，成為剪刀石頭布大師！`);
+      $("hint").innerHTML = '<span class="win">🎉 冒險成功！</span>';
+    } else {
+      log(`🌟 最終結果\n💻 電腦以 ${computerWins} : ${playerWins} 獲得最終勝利，下次再來挑戰吧！`);
+      $("hint").innerHTML = '<span class="lose">這次挑戰結束，再接再厲！</span>';
+    }
+  }
+  function nextRound() {
+    if (playerWins >= 5 || computerWins >= 5) { finish(); return; }
+    round++; retryUsed = false; scores(); lockChoices(false);
+    $("retryArea").classList.add("hidden");
+    $("hint").textContent = equipment === "魔法魔杖" ? "🪄 選擇你的拳！出拳後會顯示魔法提示。" : "選擇你的拳！";
+  }
+  function resolve(playerChoice, isRetry=false) {
+    let message = `你出了：${playerChoice}\n🤖 電腦出了：${computerChoice}\n`;
+    if (playerChoice === computerChoice) {
+      message += "平手！沒有人得分。";
+      log(message);
+      if (equipment === "疾風戰靴" && !isRetry && !retryUsed) {
+        $("retryArea").classList.remove("hidden"); lockChoices(true);
+        $("hint").textContent = "👟 平手！疾風戰靴可以讓你重新出拳一次。";
+        return;
+      }
+    } else if (beats[playerChoice] === computerChoice) {
+      playerWins++;
+      message += "\n🎉 這回合你贏了！";
+      if (equipment === "黃金鍵盤") message += "\n⌨️ 黃金鍵盤發動！你的士氣提升！";
+    } else {
+      computerWins++;
+      message += "\n💥 這回合電腦贏了！";
+    }
+    scores(); log(message);
+    $("hint").textContent = "回合結果已更新。";
+    if (playerWins >= 5 || computerWins >= 5) finish();
+    else {
+      lockChoices(true);
+      const next = document.createElement("button");
+      next.className = "primary"; next.textContent = "下一回合";
+      next.onclick = () => { next.remove(); nextRound(); };
+      $("game").insertBefore(next, $("againBtn"));
+    }
+  }
+  $("startBtn").addEventListener("click", () => {
+    name = $("playerName").value.trim();
+    if (!name) { $("playerName").focus(); alert("請先輸入你的冒險者名字！"); return; }
+    equipment = $("equipment").value;
+    playerWins=0; computerWins=0; round=1; finished=false;
+    $("setup").classList.add("hidden"); $("game").classList.remove("hidden");
+    $("welcome").textContent = `歡迎勇敢的冒險者【${name}】！`;
+    $("playerLabel").textContent = name;
+    $("gearInfo").textContent = `你已經裝備了【${equipment}】。${info[equipment]}`;
+    $("againBtn").classList.add("hidden"); scores(); lockChoices(false);
+    $("hint").textContent = "準備好就選擇你的拳！";
+    log("系統廣播：準備迎接第一關的猜拳挑戰！");
+  });
+  document.querySelectorAll(".choice").forEach(button => button.addEventListener("click", () => {
+    if (finished) return;
+    const playerChoice = button.dataset.choice;
+    computerChoice = options[Math.floor(Math.random()*options.length)];
+    if (equipment === "魔法魔杖") {
+      const winningMove = {"剪刀":"石頭","石頭":"布","布":"剪刀"};
+      $("hint").textContent = `🪄 魔法魔杖提示：想擊敗電腦，可以考慮出【${winningMove[computerChoice]}】！`;
+    }
+    resolve(playerChoice);
+  }));
+  $("retryYes").addEventListener("click", () => {
+    retryUsed = true; $("retryArea").classList.add("hidden");
+    $("hint").textContent = "請重新選擇一次拳！";
+    $("choices").querySelectorAll("button").forEach(b => {
+      b.onclick = null;
+      b.disabled = false;
+    });
+    // Use a one-time retry selection without drawing a new computer move.
+    document.querySelectorAll(".choice").forEach(button => {
+      button.disabled = false;
+      button.onclick = () => {
+        const choice = button.dataset.choice;
+        document.querySelectorAll(".choice").forEach(b => b.onclick = null);
+        if (beats[choice] === computerChoice) playerWins++;
+        else if (choice !== computerChoice) computerWins++;
+        let msg = `重新出拳：你出了 ${choice}，電腦仍是 ${computerChoice}。\n`;
+        if (beats[choice] === computerChoice) msg += "🎉 重新出拳後，你贏了！";
+        else if (choice === computerChoice) msg += "再次平手！這回合沒有人得分。";
+        else msg += "💥 重新出拳後，電腦贏了！";
+        scores(); log(msg);
+        if (playerWins >= 5 || computerWins >= 5) finish();
+        else {
+          lockChoices(true);
+          const next = document.createElement("button");
+          next.className = "primary"; next.textContent = "下一回合";
+          next.onclick = () => { next.remove(); document.querySelectorAll(".choice").forEach(b => b.onclick = null); nextRound(); };
+          $("game").insertBefore(next, $("againBtn"));
+        }
+      };
+    });
+  });
+  $("retryNo").addEventListener("click", () => {
+    $("retryArea").classList.add("hidden");
+    if (playerWins >= 5 || computerWins >= 5) finish();
+    else {
+      lockChoices(true);
+      const next = document.createElement("button"); next.className="primary"; next.textContent="下一回合";
+      next.onclick=()=>{next.remove(); nextRound();}; $("game").insertBefore(next,$("againBtn"));
+    }
+  });
+  $("againBtn").addEventListener("click", () => {
+    $("game").classList.add("hidden"); $("setup").classList.remove("hidden");
+    $("log").textContent = ""; document.querySelectorAll("#game > .primary").forEach((b,i)=>{if(b.id!=="againBtn") b.remove();});
+    document.querySelectorAll(".choice").forEach(b => b.onclick = null);
+  });
+})();
+</script>
+</body>
+</html>
